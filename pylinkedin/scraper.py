@@ -216,7 +216,6 @@ class LinkedinItem(object):
 
     @property
     def has_profile_picture(self):
-        #picture = self.tree.xpath('.//div[@class="profile-picture"]/a[@class="photo"]')
         return True if self.profile_picture_url else False
 
     @property
