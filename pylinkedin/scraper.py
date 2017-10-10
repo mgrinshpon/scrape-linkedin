@@ -29,7 +29,7 @@ from lxml import html
 
 def extract_one(l, value=None):
     """ Return value if empy list else return first element """
-    if len(l) == 0:
+    if len(l or []) == 0:
         return value
     else:
         return l[0]
@@ -92,7 +92,10 @@ class LinkedinItem(object):
                      'similar_profiles', 'interests', 'has_profile_picture', 'current_education',
                      'educations', 'experiences', 'groups', 'organizations', 'certifications',
                      'name', 'skills', 'websites', 'summary', 'project', 'courses',
-                     'publications', 'recommendations']
+                      'publications', 'recommendations',
+                      'current_companies',
+                      'profile_picture_url'
+    ]
 
     def __init__(self, url=None, html_string=None, crequest=None):
         # if you want put the html text directly
@@ -151,6 +154,7 @@ class LinkedinItem(object):
         self.xp_organizations = self.tree.xpath('//section[@id = "organizations"]//ul/li')
         # Recommendations
         self.xp_recommendations = self.tree.xpath('//section[@id = "recommendations"]//ul/li')
+        self.xp_current_companies = self.tree.xpath('//table[@class="extra-info"]//tr[@data-section="currentPositionsDetails"]/td//span')
         # Summary
         # self.xp_summary = extract_one(self.tree.xpath('//div[@id = "summary"]'))
         # Recommendation
@@ -159,7 +163,8 @@ class LinkedinItem(object):
     @staticmethod
     def get_xp(origin, path):
         """ Helper to query xpath from origin """
-        return clean(origin.xpath(path))
+        if origin:
+            return clean(origin.xpath(path))
 
     def get_clean_xpath(self, x):
         return clean(self.tree.xpath(x))
@@ -211,8 +216,15 @@ class LinkedinItem(object):
 
     @property
     def has_profile_picture(self):
-        picture = self.tree.xpath('.//div[@class="profile-picture"]/a')
-        return True if picture else  False
+        #picture = self.tree.xpath('.//div[@class="profile-picture"]/a[@class="photo"]')
+        return True if self.profile_picture_url else False
+
+    @property
+    def profile_picture_url(self):
+        picture = extract_one(
+            self.tree.xpath(
+                './/div[@class="profile-picture"]/a/img/@data-delayed-url'))
+        return picture
 
     @property
     def name(self):
@@ -348,7 +360,8 @@ class LinkedinItem(object):
                 data['linkedin_company_img_url'] = extract_one(
                     self.get_xp(experience, './/h5[@class="logo"]/a/img/@src'))
                 data['area'] = extract_one(self.get_xp(
-                    experience, './div//span[@class="locality"]/text()'))
+                    #experience, './div//span[@class="locality"]/text()'))
+                    experience, './div//span[@class="location"]/text()'))
                 data['description'] = ' '.join(self.get_xp(
                     experience, './/p[contains(@class,"description")]/text()'))
                 start_date = self.get_xp(
@@ -493,6 +506,18 @@ class LinkedinItem(object):
         return recommendations
 
     @property
+    def current_companies(self):
+        """Return a list of current companies with urls"""
+        companies = []
+        if len(self.xp_current_companies) > 0:
+            for company in self.xp_current_companies:
+                data = {}
+                data['name'] = extract_one(self.get_xp(company, './/text()'))
+                data['url'] = extract_one(self.get_xp(company, './/a/@href'))
+                companies.append(data)
+        return companies
+
+    @property
     def test_scores(self):
         """ Return a list of dictionnary with test scores """
         if isinstance(self.xp_test_scores, html.HtmlElement) is True:
@@ -575,6 +600,8 @@ class LinkedinItem(object):
         'has_profile_picture': self.has_profile_picture,
         'current_education': self.current_education,
         'current_title': self.current_title,
+        'current_companies': self.current_companies,
+        'profile_picture_url': self.profile_picture_url,
         'current_location': self.current_location,
         'current_industry': self.current_industry,
         'summary': self.summary,
