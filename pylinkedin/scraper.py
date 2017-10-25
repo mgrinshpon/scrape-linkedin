@@ -20,7 +20,6 @@ Notes :
 from .utils import CustomRequest
 from .exceptions import ProfileNotFound, NotAProfile
 
-from collections import defaultdict
 import json
 import time
 
@@ -160,17 +159,14 @@ class LinkedinItem(object):
         self.xp_code_data = extract_one(
             self.tree.xpath(
                 '//code[contains(text(), "com.linkedin.voyager.identity.profile.ProfileView")]'))
-        self.code_data = defaultdict(dict)
+        self.code_data = {}
         if self.xp_code_data is not None:
             code_data = json.loads(
                 extract_one(
                     self.get_xp(self.xp_code_data, './text()')))
             for d in code_data['included']:
-                if 'entityUrn' not in d and '$id' not in d:
-                    import pdb
-                    pdb.set_trace()
-                    pass
-                self.code_data[d['$type']][d.get('entityUrn', d.get('$id'))] = d
+                self.code_data.setdefault(d['$type'], {})[
+                    d.get('entityUrn', d.get('$id'))] = d
 
         # Summary
         # self.xp_summary = extract_one(self.tree.xpath('//div[@id = "summary"]'))
@@ -240,7 +236,7 @@ class LinkedinItem(object):
         picture = extract_one(
             self.tree.xpath(
                 './/div[@class="profile-picture"]/a/img/@data-delayed-url'))
-        if not picture:
+        if not picture and self.code_data:
             picture_data = self.code_data[
                 'com.linkedin.voyager.identity.profile.Picture'].values()
             if picture_data:
@@ -252,8 +248,10 @@ class LinkedinItem(object):
 
     def get_code_data_profile(self):
         if self.code_data:
-            return list(self.code_data[
-                'com.linkedin.voyager.identity.profile.Profile'].values())[0]
+            profiles = list(self.code_data[
+                'com.linkedin.voyager.identity.profile.Profile'].values())
+            if profiles:
+                return profiles[0]
         return {}
 
     @property
@@ -371,7 +369,7 @@ class LinkedinItem(object):
             skills = [{'name': extract_one(self.get_xp(s, './span//text()')),
                        'url': extract_one(self.get_xp(s, './a/@href'))}
                       for s in self.xp_skills]
-        if not skills:
+        if not skills and self.code_data:
             code_skills = self.code_data[
                 'com.linkedin.voyager.identity.profile.Skill']
             if code_skills:
@@ -453,7 +451,7 @@ class LinkedinItem(object):
                 else:
                     data['end_date'] = time.strftime("%B-%Y")
                 experiences.append(data)
-        if not experiences:
+        if not experiences and self.code_data:
             code_experiences = self.code_data[
                 'com.linkedin.voyager.identity.profile.Position'].values()
             for experience in code_experiences:
@@ -518,7 +516,7 @@ class LinkedinItem(object):
                 else:
                     data['end_date'] = time.strftime("%B-%Y")
                 schools.append(data)
-        if not schools:
+        if not schools and self.code_data:
             code_educations = self.code_data[
                 'com.linkedin.voyager.identity.profile.Education'].values()
             for education in code_educations:
