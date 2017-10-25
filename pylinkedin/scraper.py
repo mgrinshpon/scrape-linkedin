@@ -251,15 +251,17 @@ class LinkedinItem(object):
         return picture
 
     def get_code_data_profile(self):
-        return list(self.code_data[
-            'com.linkedin.voyager.identity.profile.Profile'].values())[0]
+        if self.code_data:
+            return list(self.code_data[
+                'com.linkedin.voyager.identity.profile.Profile'].values())[0]
+        return {}
 
     @property
     def name(self):
         """ Return name of the profile """
         name_ = extract_one(
             self.get_xp(self.xp_header, './/h1[@id="name"]/text()'))
-        if not name_:
+        if not name_ and self.code_data:
             profile = self.get_code_data_profile()
             name_ = ' '.join([profile['firstName'], profile['lastName']])
         return name_
@@ -392,7 +394,7 @@ class LinkedinItem(object):
     def summary(self):
         """ Return the summary of the linkedin profile """
         summary = ' '.join(self.get_clean_xpath('//section[@id = "summary"]//div[@class = "description"]/p//text()'))
-        if not summary:
+        if not summary and self.code_data:
             profile = self.get_code_data_profile()
             if profile:
                 summary = profile.get('summary')
