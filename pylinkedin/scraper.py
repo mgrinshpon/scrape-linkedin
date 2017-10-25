@@ -257,11 +257,12 @@ class LinkedinItem(object):
     @property
     def name(self):
         """ Return name of the profile """
-        name = extract_one(
+        name_ = extract_one(
             self.get_xp(self.xp_header, './/h1[@id="name"]/text()'))
-        if not name:
+        if not name_:
             profile = self.get_code_data_profile()
-            return ' '.join([profile['firstName'], profile['lastName']])
+            name_ = ' '.join([profile['firstName'], profile['lastName']])
+        return name_
 
     @property
     def first_name(self):
