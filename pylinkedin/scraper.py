@@ -20,6 +20,8 @@ Notes :
 from .utils import CustomRequest
 from .exceptions import ProfileNotFound, NotAProfile
 
+from collections import defaultdict
+import json
 import time
 
 from lxml import html
@@ -155,6 +157,21 @@ class LinkedinItem(object):
         # Recommendations
         self.xp_recommendations = self.tree.xpath('//section[@id = "recommendations"]//ul/li')
         self.xp_current_companies = self.tree.xpath('//table[@class="extra-info"]//tr[@data-section="currentPositionsDetails"]/td//span')
+        self.xp_code_data = extract_one(
+            self.tree.xpath(
+                '//code[contains(text(), "com.linkedin.voyager.identity.profile.ProfileView")]'))
+        self.code_data = defaultdict(dict)
+        if self.xp_code_data is not None:
+            code_data = json.loads(
+                extract_one(
+                    self.get_xp(self.xp_code_data, './text()')))
+            for d in code_data['included']:
+                if 'entityUrn' not in d and '$id' not in d:
+                    import pdb
+                    pdb.set_trace()
+                    pass
+                self.code_data[d['$type']][d.get('entityUrn', d.get('$id'))] = d
+
         # Summary
         # self.xp_summary = extract_one(self.tree.xpath('//div[@id = "summary"]'))
         # Recommendation
@@ -163,7 +180,7 @@ class LinkedinItem(object):
     @staticmethod
     def get_xp(origin, path):
         """ Helper to query xpath from origin """
-        if origin:
+        if origin is not None:
             return clean(origin.xpath(path))
 
     def get_clean_xpath(self, x):
@@ -223,39 +240,76 @@ class LinkedinItem(object):
         picture = extract_one(
             self.tree.xpath(
                 './/div[@class="profile-picture"]/a/img/@data-delayed-url'))
+        if not picture:
+            picture_data = self.code_data[
+                'com.linkedin.voyager.identity.profile.Picture'].values()
+            if picture_data:
+                picture_data = [v for v in picture_data][0]
+            if picture_data and 'masterImage' in picture_data:
+                picture = 'https://media.licdn.com/media{}'.format(
+                    picture_data['masterImage'])
         return picture
+
+    def get_code_data_profile(self):
+        return list(self.code_data[
+            'com.linkedin.voyager.identity.profile.Profile'].values())[0]
 
     @property
     def name(self):
         """ Return name of the profile """
-        return extract_one(self.get_xp(self.xp_header, './/h1[@id="name"]/text()'))
+        name = extract_one(
+            self.get_xp(self.xp_header, './/h1[@id="name"]/text()'))
+        if not name:
+            profile = self.get_code_data_profile()
+            return ' '.join([profile['firstName'], profile['lastName']])
 
     @property
     def first_name(self):
         """ Return first name """
         first_name = get_list_i(self.name.split(' ', 1), 0) if self.name is not None else None
+        if not first_name and self.code_data:
+            first_name = self.get_code_data_profile()['firstName']
         return first_name
 
     @property
     def last_name(self):
         """ Return last name of the profile """
         last_name = get_list_i(self.name.split(' ', 1), 1) if self.name is not None else None
+        if not last_name and self.code_data:
+            last_name = self.get_code_data_profile()['lastName']
         return last_name
 
     @property
     def current_title(self):
         """ Return current title """
-        return extract_one(self.get_xp(self.xp_header, './/p[@class="headline title"]/text()'))
+        title = extract_one(self.get_xp(self.xp_header, './/p[@class="headline title"]/text()'))
+        if not title:
+            experiences = self.experiences
+            if experiences:
+                title = experiences[0]['jobtitle']
+        return title
 
     @property
     def current_location(self):
         """ Return current location """
-        return extract_one(self.get_xp(self.xp_header, './/dl[@id="demographics"]/dd[@class="descriptor adr"]/span/text()'))
-
+        location = extract_one(self.get_xp(self.xp_header, './/dl[@id="demographics"]/dd[@class="descriptor adr"]/span/text()'))
+        if not location:
+            experiences = self.experiences
+            if experiences:
+                title = experiences[0]['area']
+        return title
+            
     @property
     def current_industry(self):
         """ Return current industry """
-        return extract_one(self.get_xp(self.xp_header, './/dl[@id="demographics"]/dd[@class="descriptor"]/text()'))
+        industry = extract_one(self.get_xp(self.xp_header, './/dl[@id="demographics"]/dd[@class="descriptor"]/text()'))
+        if not industry:
+            experiences = self.experiences
+            if experiences:
+                industries = experiences[0].get('company_industries')
+                if industries:
+                    industry = industries[0]
+        return industry
 
     @property
     def current_education(self):
@@ -264,7 +318,12 @@ class LinkedinItem(object):
             self.xp_header, './/tr[@data-section="educationsDetails"]//a//text()'))
         url = extract_one(self.get_xp(
             self.xp_header, './/tr[@data-section="educationsDetails"]//a/@href'))
-        return {'name': name, 'url': url}
+        current_education = {'name': name, 'url': url}
+        if not name:
+            educations = self.educations
+            if educations:
+                current_education = {'name': educations[0]['university_name']}
+        return current_education
 
     @property
     def websites(self):
@@ -304,12 +363,20 @@ class LinkedinItem(object):
     @property
     def skills(self):
         """ Return a list of skills """
+        skills = []
         if len(self.xp_skills) > 0:
-            return [{'name': extract_one(self.get_xp(s, './span//text()')),
-                    'url': extract_one(self.get_xp(s, './a/@href'))}
-                    for s in self.xp_skills]
-        else:
-            return []
+            skills = [{'name': extract_one(self.get_xp(s, './span//text()')),
+                       'url': extract_one(self.get_xp(s, './a/@href'))}
+                      for s in self.xp_skills]
+        if not skills:
+            code_skills = self.code_data[
+                'com.linkedin.voyager.identity.profile.Skill']
+            if code_skills:
+                code_skills = sorted(list(code_skills.values()),
+                                     key=lambda x: x['entityUrn'])
+                skills = [{'name': s['name']}
+                          for s in code_skills]
+        return skills
 
     @property
     def languages(self):
@@ -323,8 +390,13 @@ class LinkedinItem(object):
     @property
     def summary(self):
         """ Return the summary of the linkedin profile """
-        return ' '.join(self.get_clean_xpath('//section[@id = "summary"]//div[@class = "description"]/p//text()'))
-
+        summary = ' '.join(self.get_clean_xpath('//section[@id = "summary"]//div[@class = "description"]/p//text()'))
+        if not summary:
+            profile = self.get_code_data_profile()
+            if profile:
+                summary = profile.get('summary')
+        return summary
+    
     @property
     def recommendations(self):
         """ Return a list of description of the recommendations """
@@ -339,6 +411,11 @@ class LinkedinItem(object):
     def volunteering_causes(self):
         """ Return a list of the volunteering causes the linkedin member cares bout """
         return self.get_clean_xpath('//div[@id="volunteering-causes-view"]//ul[@class="volunteering-listing"]/li/text()')
+
+    @staticmethod
+    def convert_code_date(date_obj):
+        return '{:04d}-{:02d}-01'.format(
+            date_obj['year'], date_obj['month'])
 
     @property
     def experiences(self):
@@ -373,6 +450,36 @@ class LinkedinItem(object):
                 else:
                     data['end_date'] = time.strftime("%B-%Y")
                 experiences.append(data)
+        if not experiences:
+            code_experiences = self.code_data[
+                'com.linkedin.voyager.identity.profile.Position'].values()
+            for experience in code_experiences:
+                data = {}
+                time_period = self.code_data[
+                    'com.linkedin.voyager.common.DateRange'][
+                        experience['timePeriod']]
+                data['start_date'] = self.convert_code_date(
+                    self.code_data['com.linkedin.common.Date'][
+                        time_period['startDate']]
+                )
+                end_date_key = time_period.get('endDate')
+                if not end_date_key:
+                    data['end_date'] = time.strftime("%Y-%m-%d")
+                else:
+                    data['end_date'] = self.convert_code_date(
+                        self.code_data['com.linkedin.common.Date'][
+                            time_period['endDate']]
+                    )
+                data['jobtitle'] = experience.get('title')
+                data['company'] = experience.get('companyName')
+                data['company_industries'] = self.code_data[
+                    'com.linkedin.voyager.identity.profile.PositionCompany'][
+                        experience['company']].get('industries', [])
+                data['area'] = experience.get('locationName')
+                data['description'] = experience.get('description')
+                experiences.append(data)
+            experiences.sort(key=lambda x: (x['end_date'], x['start_date']),
+                             reverse=True)
         return experiences
 
     @property
@@ -408,6 +515,35 @@ class LinkedinItem(object):
                 else:
                     data['end_date'] = time.strftime("%B-%Y")
                 schools.append(data)
+        if not schools:
+            code_educations = self.code_data[
+                'com.linkedin.voyager.identity.profile.Education'].values()
+            for education in code_educations:
+                data = {}
+                data['university_name'] = education.get('schoolName')
+                data['description'] = education.get('description')
+                data['degree'] = education.get('degreeName')
+                data['major'] = education.get('fieldOfStudy')
+                if 'timePeriod' in education:
+                    time_period = self.code_data[
+                        'com.linkedin.voyager.common.DateRange'][
+                            education['timePeriod']]
+                    data['start_date'] = self.convert_code_date(
+                        self.code_data['com.linkedin.common.Date'][
+                            time_period['startDate']]
+                    )
+                    end_date_key = time_period.get('endDate')
+                    if not end_date_key:
+                        data['end_date'] = time.strftime("%Y-%m-%d")
+                    else:
+                        data['end_date'] = self.convert_code_date(
+                            self.code_data['com.linkedin.common.Date'][
+                                time_period['endDate']]
+                        )
+                schools.append(data)
+            schools.sort(key=lambda x: (x.get('end_date', ''),
+                                        x.get('start_date', '')),
+                         reverse=True)
         return schools
 
     @property
@@ -514,6 +650,16 @@ class LinkedinItem(object):
                 data['name'] = extract_one(self.get_xp(company, './/text()'))
                 data['url'] = extract_one(self.get_xp(company, './/a/@href'))
                 companies.append(data)
+        if not companies:
+            experiences = self.experiences
+            max_end_date = max([
+                e['end_date'] for e in experiences if e.get('end_date')] or 0)
+            if max_end_date:
+                current_experiences = [
+                    e for e in experiences if e['end_date'] == max_end_date]
+                companies = [{
+                    'name': e['company']
+                } for e in current_experiences]
         return companies
 
     @property
@@ -583,8 +729,6 @@ class LinkedinItem(object):
                 data['img_url']=extract_one(self.get_xp(profile, './a/img/@data-li-src'))
                 similar_profiles.append(data)
         return similar_profiles
-
-
 
     def to_dict(self):
         data={
