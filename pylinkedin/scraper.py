@@ -297,8 +297,8 @@ class LinkedinItem(object):
         if not location:
             experiences = self.experiences
             if experiences:
-                title = experiences[0]['area']
-        return title
+                location = experiences[0]['area']
+        return location
             
     @property
     def current_industry(self):
