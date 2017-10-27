@@ -473,9 +473,11 @@ class LinkedinItem(object):
                     )
                 data['jobtitle'] = experience.get('title')
                 data['company'] = experience.get('companyName')
-                data['company_industries'] = self.code_data[
-                    'com.linkedin.voyager.identity.profile.PositionCompany'][
-                        experience['company']].get('industries', [])
+                if experience.get('company'):
+                    data['company_industries'] = self.code_data[
+                        'com.linkedin.voyager.identity.profile.'
+                        'PositionCompany'][
+                            experience['company']].get('industries', [])
                 data['area'] = experience.get('locationName')
                 data['description'] = experience.get('description')
                 experiences.append(data)
