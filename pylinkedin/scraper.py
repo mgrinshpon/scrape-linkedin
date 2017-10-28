@@ -416,7 +416,7 @@ class LinkedinItem(object):
     @staticmethod
     def convert_code_date(date_obj):
         return '{:04d}-{:02d}-01'.format(
-            date_obj['year'], date_obj['month'])
+            date_obj['year'], date_obj.get('month', 1))
 
     @property
     def experiences(self):
@@ -459,6 +459,8 @@ class LinkedinItem(object):
                 time_period = self.code_data[
                     'com.linkedin.voyager.common.DateRange'][
                         experience['timePeriod']]
+                start_time_period = self.code_data['com.linkedin.common.Date'][
+                    time_period['startDate']]
                 data['start_date'] = self.convert_code_date(
                     self.code_data['com.linkedin.common.Date'][
                         time_period['startDate']]
