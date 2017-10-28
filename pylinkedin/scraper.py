@@ -370,8 +370,8 @@ class LinkedinItem(object):
                        'url': extract_one(self.get_xp(s, './a/@href'))}
                       for s in self.xp_skills]
         if not skills and self.code_data:
-            code_skills = self.code_data[
-                'com.linkedin.voyager.identity.profile.Skill']
+            code_skills = self.code_data.get(
+                'com.linkedin.voyager.identity.profile.Skill')
             if code_skills:
                 code_skills = sorted(list(code_skills.values()),
                                      key=lambda x: x['entityUrn'])
