@@ -418,6 +418,29 @@ class LinkedinItem(object):
         return '{:04d}-{:02d}-01'.format(
             date_obj['year'], date_obj.get('month', 1))
 
+    def get_dates_from_time_period(self, obj):
+        data = {}
+        if 'timePeriod' in obj:
+            time_period = self.code_data[
+                'com.linkedin.voyager.common.DateRange'][
+                    obj['timePeriod']]
+            start_time_period = self.code_data[
+                'com.linkedin.common.Date'][
+                    time_period['startDate']]
+            data['start_date'] = self.convert_code_date(
+                self.code_data['com.linkedin.common.Date'][
+                    time_period['startDate']]
+            )
+            end_date_key = time_period.get('endDate')
+            if not end_date_key:
+                data['end_date'] = time.strftime("%Y-%m-%d")
+            else:
+                data['end_date'] = self.convert_code_date(
+                    self.code_data['com.linkedin.common.Date'][
+                        time_period['endDate']]
+                )
+        return data
+
     @property
     def experiences(self):
         """ Return a list of dictionnary with experience details """
@@ -456,23 +479,7 @@ class LinkedinItem(object):
                 'com.linkedin.voyager.identity.profile.Position'].values()
             for experience in code_experiences:
                 data = {}
-                time_period = self.code_data[
-                    'com.linkedin.voyager.common.DateRange'][
-                        experience['timePeriod']]
-                start_time_period = self.code_data['com.linkedin.common.Date'][
-                    time_period['startDate']]
-                data['start_date'] = self.convert_code_date(
-                    self.code_data['com.linkedin.common.Date'][
-                        time_period['startDate']]
-                )
-                end_date_key = time_period.get('endDate')
-                if not end_date_key:
-                    data['end_date'] = time.strftime("%Y-%m-%d")
-                else:
-                    data['end_date'] = self.convert_code_date(
-                        self.code_data['com.linkedin.common.Date'][
-                            time_period['endDate']]
-                    )
+                data.update(self.get_dates_from_time_period(experience))
                 data['jobtitle'] = experience.get('title')
                 data['company'] = experience.get('companyName')
                 if experience.get('company'):
@@ -529,22 +536,7 @@ class LinkedinItem(object):
                 data['description'] = education.get('description')
                 data['degree'] = education.get('degreeName')
                 data['major'] = education.get('fieldOfStudy')
-                if 'timePeriod' in education:
-                    time_period = self.code_data[
-                        'com.linkedin.voyager.common.DateRange'][
-                            education['timePeriod']]
-                    data['start_date'] = self.convert_code_date(
-                        self.code_data['com.linkedin.common.Date'][
-                            time_period['startDate']]
-                    )
-                    end_date_key = time_period.get('endDate')
-                    if not end_date_key:
-                        data['end_date'] = time.strftime("%Y-%m-%d")
-                    else:
-                        data['end_date'] = self.convert_code_date(
-                            self.code_data['com.linkedin.common.Date'][
-                                time_period['endDate']]
-                        )
+                data.update(self.get_dates_from_time_period(education))
                 schools.append(data)
             schools.sort(key=lambda x: (x.get('end_date', ''),
                                         x.get('start_date', '')),
