@@ -490,7 +490,8 @@ class LinkedinItem(object):
                 data['area'] = experience.get('locationName')
                 data['description'] = experience.get('description')
                 experiences.append(data)
-            experiences.sort(key=lambda x: (x['end_date'], x['start_date']),
+            experiences.sort(key=lambda x: (x.get('end_date', '0'),
+                                            x.get('start_date', '0')),
                              reverse=True)
         return experiences
 
@@ -538,8 +539,8 @@ class LinkedinItem(object):
                 data['major'] = education.get('fieldOfStudy')
                 data.update(self.get_dates_from_time_period(education))
                 schools.append(data)
-            schools.sort(key=lambda x: (x.get('end_date', ''),
-                                        x.get('start_date', '')),
+            schools.sort(key=lambda x: (x.get('end_date', '0'),
+                                        x.get('start_date', '0')),
                          reverse=True)
         return schools
 
