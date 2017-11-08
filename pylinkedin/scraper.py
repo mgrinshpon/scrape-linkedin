@@ -651,7 +651,8 @@ class LinkedinItem(object):
         if not companies:
             experiences = self.experiences
             max_end_date = max([
-                e['end_date'] for e in experiences if e.get('end_date')] or 0)
+                e['end_date'] for e in experiences if e.get('end_date')]
+                               or [0])
             if max_end_date:
                 current_experiences = [
                     e for e in experiences if e['end_date'] == max_end_date]
