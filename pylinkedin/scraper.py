@@ -433,11 +433,10 @@ class LinkedinItem(object):
             )
             end_date_key = time_period.get('endDate')
             if not end_date_key:
-                data['end_date'] = time.strftime("%Y-%m-%d")
+                data['end_date'] = None
             else:
                 data['end_date'] = self.convert_code_date(
-                    self.code_data['com.linkedin.common.Date'][
-                        time_period['endDate']]
+                    self.code_data['com.linkedin.common.Date'][end_date_key]
                 )
         return data
 
@@ -472,7 +471,7 @@ class LinkedinItem(object):
                 if end_date:
                     data['end_date'] = extract_one(end_date)
                 else:
-                    data['end_date'] = time.strftime("%B-%Y")
+                    data['end_date'] = None
                 experiences.append(data)
         if not experiences and self.code_data:
             code_experiences = self.code_data[
@@ -490,7 +489,8 @@ class LinkedinItem(object):
                 data['area'] = experience.get('locationName')
                 data['description'] = experience.get('description')
                 experiences.append(data)
-            experiences.sort(key=lambda x: (x.get('end_date', '0'),
+            today = time.strftime('%Y-%m-%d')
+            experiences.sort(key=lambda x: (x.get('end_date', today),
                                             x.get('start_date', '0')),
                              reverse=True)
         return experiences
@@ -515,7 +515,7 @@ class LinkedinItem(object):
                 if data['description'] is not None:
                     data['degree'] = get_list_i(data['description'].split(','), 0)
                     data['major'] = get_list_i(data['description'].split(','), 1)
-                else :
+                else:
                     data['degree'] = None
                     data['major'] = None
                 start_date = self.get_xp(
@@ -526,7 +526,7 @@ class LinkedinItem(object):
                 if end_date:
                     data['end_date'] = extract_one(end_date)
                 else:
-                    data['end_date'] = time.strftime("%B-%Y")
+                    data['end_date'] = None
                 schools.append(data)
         if not schools and self.code_data:
             code_educations = self.code_data[
@@ -539,7 +539,8 @@ class LinkedinItem(object):
                 data['major'] = education.get('fieldOfStudy')
                 data.update(self.get_dates_from_time_period(education))
                 schools.append(data)
-            schools.sort(key=lambda x: (x.get('end_date', '0'),
+            today = time.strftime('%Y-%m-%d')
+            schools.sort(key=lambda x: (x.get('end_date', today),
                                         x.get('start_date', '0')),
                          reverse=True)
         return schools
@@ -564,7 +565,7 @@ class LinkedinItem(object):
                 if end_date:
                     data['end_date'] = extract_one(end_date)
                 else:
-                    data['end_date'] = time.strftime("%B-%Y")
+                    data['end_date'] = None
                 projects.append(data)
         return projects
 
