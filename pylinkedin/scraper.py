@@ -490,8 +490,8 @@ class LinkedinItem(object):
                 data['description'] = experience.get('description')
                 experiences.append(data)
             today = time.strftime('%Y-%m-%d')
-            experiences.sort(key=lambda x: (x.get('end_date', today),
-                                            x.get('start_date', '0')),
+            experiences.sort(key=lambda x: (x.get('end_date', today) or '0',
+                                            x.get('start_date', '0') or '0'),
                              reverse=True)
         return experiences
 
@@ -650,16 +650,13 @@ class LinkedinItem(object):
                 data['url'] = extract_one(self.get_xp(company, './/a/@href'))
                 companies.append(data)
         if not companies:
-            experiences = self.experiences
-            max_end_date = max([
-                e['end_date'] for e in experiences if e.get('end_date')]
-                               or [0])
-            if max_end_date:
-                current_experiences = [
-                    e for e in experiences if e['end_date'] == max_end_date]
-                companies = [{
-                    'name': e['company']
-                } for e in current_experiences]
+            current_experiences = [
+                e for e in self.experiences
+                if e.get('start_date') and not e.get('end_date')
+            ]
+            companies = [{
+                'name': e['company']
+            } for e in current_experiences]
         return companies
 
     @property
